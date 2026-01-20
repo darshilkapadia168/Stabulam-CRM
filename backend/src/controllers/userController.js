@@ -309,6 +309,7 @@ exports.updateUser = async (req, res) => {
  * ============================
  */
 exports.updateUserPermissions = async (req, res) => {
+  
   try {
     const { id } = req.params;
     const { permissions } = req.body;
@@ -321,11 +322,13 @@ exports.updateUserPermissions = async (req, res) => {
     ).select('-password');
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
       });
     }
+    console.log('🔔 Emitting to room:', id);
+  console.log('🔔 Permissions being sent:', user.permissions);
 
     // 🔹 NEW: Emit socket event to notify the user
     const io = req.app.get('io');
@@ -336,18 +339,18 @@ exports.updateUserPermissions = async (req, res) => {
 
     console.log(`🔔 Emitted permission update to user: ${id}`);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Permissions updated successfully',
-      data: user 
+      data: user
     });
 
   } catch (error) {
     console.error('Update permissions error:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Failed to update permissions',
-      error: error.message 
+      error: error.message
     });
   }
 };

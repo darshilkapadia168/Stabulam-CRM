@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Eye, Edit3, Trash2, X, Mail, Briefcase, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import useEmployeePermissions from "../../../hooks/useEmployeePermissions";
 import api from "../../../services/api";
 
 export default function EmployeeCard({ employee, onDelete }) {
@@ -9,7 +10,9 @@ export default function EmployeeCard({ employee, onDelete }) {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ✅ Extract data from the populated structure
+  // 🔹 GET PERMISSIONS
+  const { canEditEmployees, canDeleteEmployees } = useEmployeePermissions();
+
   const name = employee.userId?.name || "Unknown";
   const email = employee.userId?.email || "N/A";
   const avatar = employee.userId?.avatar || null;
@@ -18,11 +21,9 @@ export default function EmployeeCard({ employee, onDelete }) {
   const employeeId = employee._id;
   const userId = employee.userId?._id;
   
-  // 🕒 NEW: Extract start and end time
   const startTime = employee.jobInfo?.startTime || "09:00";
   const endTime = employee.jobInfo?.endTime || "18:00";
 
-  // 🕒 Format time to 12-hour format with AM/PM
   const formatTime = (time) => {
     if (!time) return "N/A";
     const [hours, minutes] = time.split(':');
@@ -56,22 +57,24 @@ export default function EmployeeCard({ employee, onDelete }) {
     setIsDeleting(true);
 
     try {
-      // Delete employee profile first
       await api.delete(`/employees/${employeeId}`);
-      
-      // Then delete user account
       await api.delete(`/users/${userId}`);
 
       alert("Employee deleted successfully!");
       setIsDeleteModalOpen(false);
       
-      // Call parent callback to refresh the list
       if (onDelete) {
         onDelete(employeeId);
       }
     } catch (error) {
       console.error("Delete error:", error);
-      alert(error.response?.data?.message || "Failed to delete employee");
+      
+      // 🔹 Handle 403 permission error
+      if (error.response?.status === 403) {
+        alert("You don't have permission to delete employees");
+      } else {
+        alert(error.response?.data?.message || "Failed to delete employee");
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -79,7 +82,7 @@ export default function EmployeeCard({ employee, onDelete }) {
 
   return (
     <>
-      {/* --- THE CARD --- */}
+      {/* THE CARD */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 pt-8 flex flex-col items-center text-center group relative">
         <div className="w-20 h-20 rounded-full overflow-hidden mb-4 border-4 border-slate-50 shadow-sm">
           <img 
@@ -95,28 +98,37 @@ export default function EmployeeCard({ employee, onDelete }) {
         </div>
 
         <div className="w-full border-t border-slate-50 mt-auto flex divide-x divide-slate-50">
+          {/* 🔹 VIEW - Always visible if user can access employee list */}
           <button 
             onClick={openModal} 
             className="flex-1 py-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
           >
             <Eye size={14} /> View
           </button>
-          <button 
-            onClick={handleEdit}
-            className="flex-1 py-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-amber-600 transition-all"
-          >
-            <Edit3 size={14} /> Edit
-          </button>
-          <button 
-            onClick={openDeleteModal}
-            className="flex-1 py-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-600 hover:bg-red-50 hover:text-red-600 transition-all"
-          >
-            <Trash2 size={14} /> Delete
-          </button>
+
+          {/* 🔹 EDIT - Only show if user has edit permission */}
+          {canEditEmployees && (
+            <button 
+              onClick={handleEdit}
+              className="flex-1 py-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-amber-600 transition-all"
+            >
+              <Edit3 size={14} /> Edit
+            </button>
+          )}
+
+          {/* 🔹 DELETE - Only show if user has delete permission */}
+          {canDeleteEmployees && (
+            <button 
+              onClick={openDeleteModal}
+              className="flex-1 py-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-600 hover:bg-red-50 hover:text-red-600 transition-all"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          )}
         </div>
       </div>
 
-      {/* --- THE QUICK VIEW MODAL --- */}
+      {/* QUICK VIEW MODAL */}
       {isModalOpen && (
         <div 
           className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4"
@@ -127,7 +139,6 @@ export default function EmployeeCard({ employee, onDelete }) {
             onClick={(e) => e.stopPropagation()}
           >
             
-            {/* 🔵 Decorative Header */}
             <div className="h-22 w-full relative flex items-center justify-center">
               <button 
                 onClick={() => setIsModalOpen(false)}
@@ -137,10 +148,8 @@ export default function EmployeeCard({ employee, onDelete }) {
               </button>
             </div>
 
-            {/* 🧑 Profile Section */}
             <div className="px-8 pb-10 pt-2 -mt-14 flex flex-col items-center text-center">
               
-              {/* Avatar */}
               <div className="w-32 h-32 rounded-full overflow-hidden border-[6px] border-white shadow-xl mb-4 bg-white">
                 <img 
                   src={avatar || `https://ui-avatars.com/api/?name=${name}&background=6366f1&color=fff`} 
@@ -157,7 +166,6 @@ export default function EmployeeCard({ employee, onDelete }) {
                 {role}
               </p>
 
-              {/* Info Rows */}
               <div className="w-full space-y-3 mb-8">
                 
                 <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
@@ -188,7 +196,6 @@ export default function EmployeeCard({ employee, onDelete }) {
                   </span>
                 </div>
 
-                {/* 🕒 NEW: Work Timing Display */}
                 <div className="flex items-center justify-between p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-white rounded-lg shadow-sm">
@@ -210,7 +217,6 @@ export default function EmployeeCard({ employee, onDelete }) {
 
               </div>
 
-              {/* Action Button */}
               <button 
                 onClick={() => {
                   setIsModalOpen(false);
@@ -226,7 +232,7 @@ export default function EmployeeCard({ employee, onDelete }) {
         </div>
       )}
 
-      {/* --- DELETE CONFIRMATION MODAL --- */}
+      {/* DELETE CONFIRMATION MODAL */}
       {isDeleteModalOpen && (
         <div 
           className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4"
@@ -237,17 +243,14 @@ export default function EmployeeCard({ employee, onDelete }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-8">
-              {/* Warning Icon */}
               <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-6">
                 <Trash2 className="w-8 h-8 text-red-600" />
               </div>
 
-              {/* Title */}
               <h3 className="text-2xl font-bold text-slate-900 text-center mb-3">
                 Delete Employee?
               </h3>
 
-              {/* Description */}
               <p className="text-slate-600 text-center mb-2">
                 Are you sure you want to delete <span className="font-bold text-slate-900">{name}</span>?
               </p>
@@ -255,7 +258,6 @@ export default function EmployeeCard({ employee, onDelete }) {
                 This action will permanently delete both the employee profile and user account. This cannot be undone.
               </p>
 
-              {/* Action Buttons */}
               <div className="flex gap-3">
                 <button
                   onClick={() => setIsDeleteModalOpen(false)}

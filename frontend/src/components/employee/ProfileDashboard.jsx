@@ -3,11 +3,14 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { 
   Search, Plus, Mail, Phone, Download, Edit2, 
   Trash2, ArrowLeft, Filter, X, ChevronDown,
-  UserMinus, FileText, Eye, Upload, Loader2
+  UserMinus, FileText, Eye, Upload, Loader2,UsersIcon 
 } from "lucide-react";
 import EmployeeCard from "./shared/EmployeeCard";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import useEmployeePermissions from '../../hooks/useEmployeePermissions'; 
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 // ✅ UPDATED DOCUMENTS TAB COMPONENT
 
@@ -22,16 +25,20 @@ function DocumentsTab({ employeeId }) {
     category: 'Other'
   });
 
+
+  
   useEffect(() => {
     if (employeeId) {
       fetchDocuments();
     }
   }, [employeeId]);
 
+
   const fetchDocuments = async () => {
     try {
       setLoading(true);
       const response = await api.get(`/employees/${employeeId}/documents`);
+
       setDocuments(response.data.documents || []);
     } catch (error) {
       console.error('Error fetching documents:', error);
@@ -48,7 +55,7 @@ function DocumentsTab({ employeeId }) {
     const cleanPath = fileUrl.replace(/\/api\/api\//g, '/api/');
     
     // Get the base URL from your API service
-    const baseURL = api.defaults.baseURL || 'http://localhost:5000/api';
+    const baseURL = api.defaults.baseURL || `${API_URL}/api`;
     
     // If fileUrl already starts with http, return as is
     if (cleanPath.startsWith('http')) {
@@ -178,6 +185,8 @@ const handleDelete = async (e, docId) => {
       setUploading(false);
     }
   };
+   
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-slate-200">
@@ -427,8 +436,15 @@ export default function ProfileDashboard() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user: currentUser } = useAuth();
+   const {
+    user: currentUser,
+    canViewEmployees,
+    canCreateEmployees,
+  } = useEmployeePermissions();
   
+    // 🔹 ADD THIS PERMISSION CHECK:
+  const hasShownAlert = useRef(false);
+
   const [activeTab, setActiveTab] = useState("Overview");
   const [employees, setEmployees] = useState([]);
   const [currentEmployee, setCurrentEmployee] = useState(null);
@@ -514,6 +530,32 @@ export default function ProfileDashboard() {
       </div>
     );
   }
+
+  // 🔒 EMPLOYEE VIEW PERMISSION — BLOCK EVERYTHING
+if (currentUser && !canViewEmployees) {
+  return (
+    <div className="flex items-center justify-center h-[70vh]">
+      <div className="text-center">
+        <UsersIcon className="w-14 h-14 text-slate-300 mx-auto mb-4" />
+
+        <h2 className="text-2xl font-bold text-slate-800">
+          Access Denied
+        </h2>
+
+        <p className="text-slate-500 mt-2">
+          You don't have permission to view employees.
+        </p>
+
+        <p className="text-xs text-slate-400 mt-4">
+          Current role:{" "}
+          <span className="font-semibold">
+            {currentUser?.role}
+          </span>
+        </p>
+      </div>
+    </div>
+  );
+}
 
   const isFilterActive = searchTerm !== "" || selectedDept !== "All Departments" || selectedDate !== "";
 
@@ -694,6 +736,8 @@ export default function ProfileDashboard() {
     );
   }
 
+
+
   // --- DIRECTORY GRID VIEW ---
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -733,13 +777,15 @@ export default function ProfileDashboard() {
           )}
         </div>
 
-        {currentUser?.role === 'super_admin' && (
-          <button 
-            onClick={() => navigate("/dashboard/employees/create")}
-            className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 shadow-md active:scale-95 transition-all whitespace-nowrap"
+        {canCreateEmployees && (
+         <button 
+                onClick={() => navigate("/dashboard/employees/create")}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-lg shadow-md active:scale-95 transition-all whitespace-nowrap hover:bg-indigo-700"
           >
-            <Plus size={18} /> Add New Employee
+              <Plus size={18} />
+              <span>Add New Employee</span>
           </button>
+
         )}
       </div>
 

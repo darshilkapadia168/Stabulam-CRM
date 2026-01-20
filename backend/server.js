@@ -16,41 +16,52 @@ app.use(cors());
 app.use(express.json());
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
+// ============================================
+// ROUTES REGISTRATION
+// ============================================
+
+// Auth Routes
 const authRoutes = require("./src/routes/authRoutes");
-const userRoutes = require("./src/routes/userRoutes");
-
-console.log("authRoutes type:", typeof authRoutes);
-console.log("userRoutes type:", typeof userRoutes);
-
-
 app.use("/api/auth", authRoutes);
+
+// User Routes
+const userRoutes = require("./src/routes/userRoutes");
 app.use("/api/users", userRoutes);
 
+// Employee Routes
 const employeeRoutes = require("./src/routes/employeeRoutes");
 app.use("/api/employees", employeeRoutes);
 
-const attendanceRoutes = require('./src/routes/attendanceRoutes')
+// Attendance Routes
+const attendanceRoutes = require('./src/routes/attendanceRoutes');
 app.use("/api/attendance", attendanceRoutes);
 
-const breakRoutes = require('./src/routes/breakRoutes')
+// Break Routes
+const breakRoutes = require('./src/routes/breakRoutes');
 app.use("/api/break", breakRoutes);
 
+// Workplace Location Routes
 const workplaceLocationRoutes = require('./src/routes/workplaceLocationRoutes');
 app.use("/api/workplace-locations", workplaceLocationRoutes);
 
+// Daily Logs Routes
 const dailyLogsRoutes = require('./src/routes/dailylogsRoutes');
 app.use("/api/daily-logs", dailyLogsRoutes);
 
 
-// Default route
-app.get("/", (req, res) => {
-  res.send("API is running...");
-});
+console.log("✅ All routes registered successfully");
 
+// ============================================
+// SERVE FRONTEND (Production)
+// ============================================
+const frontendPath = path.join(__dirname, "../frontend/dist");
+app.use(express.static(frontendPath));
+
+// ============================================
+// SOCKET.IO SETUP
+// ============================================
 const server = http.createServer(app);
 
-// Initialize Socket.IO
 const io = new Server(server, {
   cors: { origin: "*" }, // adjust origin in production
 });
@@ -59,11 +70,10 @@ const io = new Server(server, {
 app.set("io", io);
 
 // Socket.IO connection
-// Socket.IO connection
 io.on("connection", (socket) => {
   console.log("⚡ User connected:", socket.id);
 
-  // 🔹 User joins their own room (using their user ID)
+  // User joins their own room (using their user ID)
   socket.on("join-user-room", (userId) => {
     socket.join(userId);
     console.log(`👤 User ${userId} joined their room`);
@@ -74,10 +84,25 @@ io.on("connection", (socket) => {
   });
 });
 
-// Start server using the HTTP server
+// ============================================
+// CATCH-ALL ROUTE FOR FRONTEND (Must be LAST)
+// ============================================
+app.get("*", (req, res) => {
+  // Don't serve index.html for API routes
+  if (req.path.startsWith("/api")) {
+    return res.status(404).json({ 
+      success: false, 
+      message: "API endpoint not found",
+      path: req.path 
+    });
+  }
+  res.sendFile(path.resolve(frontendPath, "index.html"));
+});
+
+// ============================================
+// START SERVER
+// ============================================
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () =>
   console.log(`🚀 Server running on port ${PORT}`)
 );
-
-

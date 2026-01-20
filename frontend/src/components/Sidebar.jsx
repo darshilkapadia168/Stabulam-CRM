@@ -11,7 +11,9 @@ import {
   ChevronUp,
   MapPin,
   Clock,
-  Settings
+  Settings,
+  FileText,
+  ClipboardList
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -93,44 +95,70 @@ export default function Sidebar() {
           )}
         </NavLink>
 
-        {/* Attendance Management - With Dropdown */}
-       <div className={`overflow-hidden transition-all duration-300 ${attendanceOpen ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0"}`}>
-  <div className="space-y-1">
+        {/* Attendance Management - WITH CLICKABLE DROPDOWN */}
+        <div>
+          {/* Dropdown Toggle Button */}
+          <button
+            onClick={() => setAttendanceOpen(!attendanceOpen)}
+            className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-all duration-200 relative group ${
+              isAttendancePath
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/50"
+                : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              {isAttendancePath && activeIndicator(true)}
+              <CalendarCheck className={`w-5 h-5 ${isAttendancePath ? 'text-white' : 'text-slate-400 group-hover:text-indigo-400'}`} />
+              <span className="font-medium">Attendance</span>
+            </div>
+            {attendanceOpen ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+          </button>
 
-    {/* Main Attendance */}
-    <NavLink to="/dashboard/attendance" end className={subNavLinkClass}>
-      {({ isActive }) => (
-        <>
-          <Clock className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-          <span className="text-sm font-medium">Attendance</span>
-        </>
-      )}
-    </NavLink>
+          {/* Dropdown Menu */}
+          <div 
+            className={`overflow-hidden transition-all duration-300 ${
+              attendanceOpen ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0"
+            }`}
+          >
+            <div className="space-y-1">
 
-    {/* Payroll Settings (ADMIN ONLY) */}
-    <NavLink to="/dashboard/attendance/payroll-settings" className={subNavLinkClass}>
-  {({ isActive }) => (
-    <>
-      <Settings className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-      <span className="text-sm font-medium">Payroll Settings</span>
-    </>
-  )}
-</NavLink>
+              {/* 1. Attendance (Main Attendance Page) */}
+              <NavLink to="/dashboard/attendance" end className={subNavLinkClass}>
+                {({ isActive }) => (
+                  <>
+                    <Clock className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                    <span className="text-sm font-medium">Attendance</span>
+                  </>
+                )}
+              </NavLink>
 
+              {/* 2. Payroll Settings (No Role Restriction) */}
+              <NavLink to="/dashboard/attendance/payroll-settings" className={subNavLinkClass}>
+                {({ isActive }) => (
+                  <>
+                    <Settings className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                    <span className="text-sm font-medium">Payroll Settings</span>
+                  </>
+                )}
+              </NavLink>
 
-    {/* Workplace Locations */}
-    <NavLink to="/dashboard/attendance/workplace-locations" className={subNavLinkClass}>
-      {({ isActive }) => (
-        <>
-          <MapPin className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-          <span className="text-sm font-medium">Workplace Locations</span>
-        </>
-      )}
-    </NavLink>
+              {/* 3. Workplace Locations */}
+              <NavLink to="/dashboard/attendance/workplace-locations" className={subNavLinkClass}>
+                {({ isActive }) => (
+                  <>
+                    <MapPin className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                    <span className="text-sm font-medium">Workplace Locations</span>
+                  </>
+                )}
+              </NavLink>
 
-  </div>
-       </div>
-
+            </div>
+          </div>
+        </div>
 
       </nav>
 

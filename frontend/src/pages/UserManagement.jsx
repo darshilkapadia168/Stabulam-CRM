@@ -61,12 +61,14 @@ export default function UserManagement() {
   }
   });
 
+  const API_URL = import.meta.env.VITE_API_URL;
+
   /* =========================
       FETCH USERS
   ========================= */
   const fetchUsers = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/users", {
+      const res = await fetch(API_URL + "/api/users", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -95,7 +97,7 @@ export default function UserManagement() {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
 
     try {
-      await fetch(`http://localhost:5000/api/users/${id}`, {
+      await fetch(`${API_URL}/api/users/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -112,7 +114,7 @@ export default function UserManagement() {
   ========================= */
   const updateUserStatus = async (userId, newStatus) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/users/${userId}/status`, {
+      const res = await fetch(`${API_URL}/api/users/${userId}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -223,7 +225,7 @@ const savePermissions = async () => {
   
   try {
     const res = await fetch(
-      `http://localhost:5000/api/users/${permissionUser._id}/permissions`,
+      `${API_URL}/api/users/${permissionUser._id}/permissions`,
       {
         method: "PATCH",
         headers: {
@@ -307,7 +309,7 @@ const savePermissions = async () => {
   setLoadingHistory(true);
   
   try {
-    const url = `http://localhost:5000/api/users/${u._id}/history`;
+    const url = `${API_URL}/api/users/${u._id}/history`;
     
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` }

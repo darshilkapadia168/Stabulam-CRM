@@ -45,8 +45,45 @@ const superAdminOnly = (req, res, next) => {
   }
   next();
 };
+// middleware/auth.js
+const adminOrSuperAdmin = (req, res, next) => {
+  console.log("=".repeat(60));
+  console.log("🧾 ADMIN/SUPER_ADMIN MIDDLEWARE TRIGGERED");
+  console.log("📍 Request URL:", req.method, req.originalUrl);
+  console.log("👤 User object:", req.user);
+  console.log("🔑 User role:", req.user?.role);
+  
+  if (!req.user) {
+    console.log("❌ REJECTED: No user object");
+    return res.status(403).json({
+      message: "Authentication required",
+    });
+  }
+
+  // ✅ Case-insensitive role check
+  const userRole = req.user.role?.toLowerCase();
+  const allowedRoles = ["admin", "super_admin"];
+  
+  if (!allowedRoles.includes(userRole)) {
+    console.log("❌ REJECTED: Role not allowed");
+    console.log("=".repeat(60));
+    return res.status(403).json({
+      success: false,
+      message: `Access denied. Your role: ${req.user.role}`,
+    });
+  }
+  
+  console.log("✅ APPROVED: Access granted");
+  console.log("=".repeat(60));
+  next();
+};
+
+
+
+
 
 module.exports = {
   auth,
   superAdminOnly,
+  adminOrSuperAdmin,
 };

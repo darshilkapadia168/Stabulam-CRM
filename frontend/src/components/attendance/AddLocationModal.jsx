@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { MapPin, X, Navigation, Target, Loader, Map } from "lucide-react";
 import axios from "axios";
 
-const API_BASE = "http://localhost:5000/api";
+const API_URL = import.meta.env.VITE_API_URL;
+
+const API_BASE = `${API_URL}/api`;
 
 const AddLocationModal = ({ isOpen, onClose, onSuccess, editLocation }) => {
   const [formData, setFormData] = useState({

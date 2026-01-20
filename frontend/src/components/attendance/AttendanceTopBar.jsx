@@ -5,8 +5,8 @@ import StatusIndicator from "./StatusIndicator";
 import CameraCapture from "./CameraCapture";
 import axios from "axios";
 import { io } from "socket.io-client";
-
-const API_BASE = "http://localhost:5000/api";
+const API_URL = import.meta.env.VITE_API_URL;
+const API_BASE = `${API_URL}/api`;
 
 const AttendanceTopBar = () => {
   const [status, setStatus] = useState(null); // ✅ Changed default from "ABSENT" to null

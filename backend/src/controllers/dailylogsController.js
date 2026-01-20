@@ -358,45 +358,169 @@ const DEDUCTION_RULES = {
  * =========================
  */
 async function calculateDeductions(attendance, breaks = []) {
-  const payroll = await PayrollSetting.findOne({ isActive: true });
+    try {
+        // Fetch active payroll settings
+        const payroll = await PayrollSetting.findOne({ isActive: true });
 
-  if (!payroll) {
-    throw new Error("Payroll setting not found");
-  }
+        if (!payroll) {
+            console.error("⚠️ No active payroll setting found - using defaults");
+            // Return default values if no payroll setting exists
+            return {
+                lateMinutes: 0,
+                lateDeduction: 0,
+                earlyExitMinutes: 0,
+                earlyExitDeduction: 0,
+                absentDeduction: 0,
+                overtimeMinutes: 0,
+                overtimeAmount: 0,
+                totalDeduction: 0,
+                deductionBreakdown: [],
+            };
+        }
 
-  const totalBreakMinutes = breaks.reduce((sum, b) => sum + (b.breakDuration || 0), 0);
-  const totalWorkMinutes = attendance.clockOutTime && attendance.clockInTime
-      ? Math.floor((attendance.clockOutTime - attendance.clockInTime) / 60000) - totalBreakMinutes
-      : 0;
+        const deductionBreakdown = [];
 
-  const lateMinutes = Math.max(0, (attendance.lateMinutes || 0) - payroll.graceLateMinutes);
-  const lateDeduction = lateMinutes * payroll.latePenaltyPerMinute;
+        // ================= CALCULATE BREAK DURATION =================
+        const totalBreakMinutes = breaks.reduce((sum, b) => sum + (b.breakDuration || 0), 0);
 
-  const expectedShiftEnd = new Date(attendance.clockInTime);
-  expectedShiftEnd.setMinutes(expectedShiftEnd.getMinutes() + payroll.standardShiftMinutes);
+        // ================= CALCULATE WORK DURATION =================
+        let totalWorkMinutes = 0;
+        if (attendance.clockInTime && attendance.clockOutTime) {
+            const totalMinutes = Math.floor(
+                (attendance.clockOutTime - attendance.clockInTime) / 60000
+            );
+            totalWorkMinutes = Math.max(0, totalMinutes - totalBreakMinutes);
+        }
 
-  const earlyExitMinutes = Math.max(0, Math.floor((expectedShiftEnd - attendance.clockOutTime) / 60000) - payroll.graceEarlyMinutes);
-  const earlyExitDeduction = earlyExitMinutes * payroll.earlyExitPenaltyPerMinute;
+        // ================= LATE ARRIVAL DEDUCTION =================
+        let lateMinutes = 0;
+        let lateDeduction = 0;
 
-  const absentDeduction = (!attendance.clockInTime || !attendance.clockOutTime) ? payroll.absentFullDayPenalty : 0;
+        if (attendance.clockInTime) {
+            // Get expected shift start time
+            const shiftStart = attendance.shiftStartTime || "09:00";
+            const [hours, minutes] = shiftStart.split(":").map(Number);
 
-  const overtimeMinutes = Math.max(0, totalWorkMinutes - payroll.standardShiftMinutes);
-  const overtimeAmount = overtimeMinutes >= payroll.minimumOvertimeMinutes ? overtimeMinutes * payroll.overtimeRatePerMinute : 0;
+            // Create expected clock in time
+            const expectedClockIn = new Date(attendance.clockInTime);
+            expectedClockIn.setHours(hours, minutes, 0, 0);
 
-  const totalDeduction = lateDeduction + earlyExitDeduction + absentDeduction;
+            // Calculate how late they are
+            const timeDiffMinutes = Math.floor(
+                (attendance.clockInTime - expectedClockIn) / 60000
+            );
 
-  return {
-      lateMinutes,
-      lateDeduction,
-      earlyExitMinutes,
-      earlyExitDeduction,
-      absentDeduction,
-      overtimeMinutes,
-      overtimeAmount,
-      totalDeduction
-  };
+            // Apply grace period
+            lateMinutes = Math.max(0, timeDiffMinutes - payroll.graceLateMinutes);
+
+            if (lateMinutes > 0) {
+                lateDeduction = lateMinutes * payroll.latePenaltyPerMinute;
+                deductionBreakdown.push({
+                    type: "LATE",
+                    minutes: lateMinutes,
+                    amount: lateDeduction,
+                    description: `Late arrival by ${lateMinutes} minutes (after ${payroll.graceLateMinutes}-minute grace period)`,
+                });
+            }
+        }
+
+        // ================= EARLY EXIT DEDUCTION =================
+        let earlyExitMinutes = 0;
+        let earlyExitDeduction = 0;
+
+        if (attendance.clockInTime && attendance.clockOutTime) {
+            // Calculate expected shift end time
+            const expectedShiftEnd = new Date(attendance.clockInTime);
+            expectedShiftEnd.setMinutes(
+                expectedShiftEnd.getMinutes() + payroll.standardShiftMinutes
+            );
+
+            // Calculate how early they left
+            const timeDiffMinutes = Math.floor(
+                (expectedShiftEnd - attendance.clockOutTime) / 60000
+            );
+
+            // Apply grace period
+            earlyExitMinutes = Math.max(0, timeDiffMinutes - payroll.graceEarlyMinutes);
+
+            if (earlyExitMinutes > 0) {
+                earlyExitDeduction = earlyExitMinutes * payroll.earlyExitPenaltyPerMinute;
+                deductionBreakdown.push({
+                    type: "EARLY_EXIT",
+                    minutes: earlyExitMinutes,
+                    amount: earlyExitDeduction,
+                    description: `Early checkout by ${earlyExitMinutes} minutes before shift end (after ${payroll.graceEarlyMinutes}-minute grace period)`,
+                });
+            }
+        }
+
+        // ================= ABSENT DEDUCTION =================
+        let absentDeduction = 0;
+
+        if (!attendance.clockInTime) {
+            // Full day absent
+            absentDeduction = payroll.absentFullDayPenalty;
+            deductionBreakdown.push({
+                type: "ABSENT",
+                amount: absentDeduction,
+                description: "Full day absent without approved leave",
+            });
+        } else if (attendance.clockOutTime && totalWorkMinutes < 240) {
+            // Half day (less than 4 hours work)
+            // Note: You might want to add halfDayPenalty to PayrollSetting model
+            const halfDayPenalty = payroll.absentFullDayPenalty / 2; // Half of full day
+            absentDeduction = halfDayPenalty;
+            deductionBreakdown.push({
+                type: "HALF_DAY_ABSENT",
+                amount: halfDayPenalty,
+                workMinutes: totalWorkMinutes,
+                description: `Worked less than 4 hours (${(totalWorkMinutes / 60).toFixed(2)} hours) - Half day deduction applied`,
+            });
+        }
+
+        // ================= OVERTIME CALCULATION =================
+        let overtimeMinutes = 0;
+        let overtimeAmount = 0;
+
+        if (totalWorkMinutes > payroll.standardShiftMinutes) {
+            overtimeMinutes = totalWorkMinutes - payroll.standardShiftMinutes;
+
+            // Only pay overtime if it meets minimum threshold
+            if (overtimeMinutes >= payroll.minimumOvertimeMinutes) {
+                overtimeAmount = overtimeMinutes * payroll.overtimeRatePerMinute;
+            }
+        }
+
+        // ================= TOTAL DEDUCTION =================
+        const totalDeduction = lateDeduction + earlyExitDeduction + absentDeduction;
+
+        return {
+            lateMinutes,
+            lateDeduction,
+            earlyExitMinutes,
+            earlyExitDeduction,
+            absentDeduction,
+            overtimeMinutes,
+            overtimeAmount,
+            totalDeduction,
+            deductionBreakdown, // 🔥 THIS IS THE KEY - MUST BE RETURNED
+            netWorkMinutes: totalWorkMinutes,
+        };
+    } catch (error) {
+        console.error("❌ Error calculating deductions:", error);
+        return {
+            lateMinutes: 0,
+            lateDeduction: 0,
+            earlyExitMinutes: 0,
+            earlyExitDeduction: 0,
+            absentDeduction: 0,
+            overtimeMinutes: 0,
+            overtimeAmount: 0,
+            totalDeduction: 0,
+            deductionBreakdown: [],
+        };
+    }
 }
-
 
 
 
@@ -705,36 +829,77 @@ exports.getMonthlyPayrollDeduction = async (req, res) => {
  * 🆕 UPDATE DEDUCTION RULES (Admin Only)
  * =========================
  */
+/**
+ * =========================
+ * 🆕 UPDATE DEDUCTION RULES (Save to Database)
+ * =========================
+ */
 exports.updateDeductionRules = async (req, res) => {
+
     try {
         const requestingUser = req.user;
 
-        if (requestingUser.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: "Only admin can update deduction rules",
+        const {
+            latePenaltyPerMinute,
+            earlyExitPenaltyPerMinute,
+            absentFullDayPenalty,
+            halfDayPenalty,
+            minimumOvertimeMinutes,
+            overtimeRatePerMinute,
+            graceLateMinutes,
+            graceEarlyMinutes,
+            standardShiftMinutes,
+            halfDayThresholdMinutes,
+            notes,
+        } = req.body;
+
+        // Find or create active settings
+        let settings = await PayrollSetting.findOne({ isActive: true });
+
+        if (!settings) {
+            console.log("📝 Creating new PayrollSetting");
+            settings = await PayrollSetting.create({
+                latePenaltyPerMinute,
+                earlyExitPenaltyPerMinute,
+                absentFullDayPenalty,
+                halfDayPenalty,
+                minimumOvertimeMinutes,
+                overtimeRatePerMinute,
+                graceLateMinutes,
+                graceEarlyMinutes,
+                standardShiftMinutes,
+                halfDayThresholdMinutes,
+                notes,
+                isActive: true,
+                createdBy: requestingUser._id,
+                updatedBy: requestingUser._id,
             });
+        } else {
+            console.log("📝 Updating existing PayrollSetting");
+            if (latePenaltyPerMinute !== undefined) settings.latePenaltyPerMinute = latePenaltyPerMinute;
+            if (earlyExitPenaltyPerMinute !== undefined) settings.earlyExitPenaltyPerMinute = earlyExitPenaltyPerMinute;
+            if (absentFullDayPenalty !== undefined) settings.absentFullDayPenalty = absentFullDayPenalty;
+            if (halfDayPenalty !== undefined) settings.halfDayPenalty = halfDayPenalty;
+            if (minimumOvertimeMinutes !== undefined) settings.minimumOvertimeMinutes = minimumOvertimeMinutes;
+            if (overtimeRatePerMinute !== undefined) settings.overtimeRatePerMinute = overtimeRatePerMinute;
+            if (graceLateMinutes !== undefined) settings.graceLateMinutes = graceLateMinutes;
+            if (graceEarlyMinutes !== undefined) settings.graceEarlyMinutes = graceEarlyMinutes;
+            if (standardShiftMinutes !== undefined) settings.standardShiftMinutes = standardShiftMinutes;
+            if (halfDayThresholdMinutes !== undefined) settings.halfDayThresholdMinutes = halfDayThresholdMinutes;
+            if (notes !== undefined) settings.notes = notes;
+
+            settings.updatedBy = requestingUser._id;
+            await settings.save();
         }
 
-        const updates = req.body;
-
-        // Validate and update rules
-        Object.keys(updates).forEach(key => {
-            if (DEDUCTION_RULES.hasOwnProperty(key)) {
-                DEDUCTION_RULES[key] = updates[key];
-            }
-        });
-
-        // In production, save this to database or config file
-        // For now, it's in-memory
-
+        console.log("✅ PayrollSetting saved successfully");
         return res.status(200).json({
             success: true,
-            message: "Deduction rules updated successfully",
-            data: DEDUCTION_RULES,
+            message: "Payroll settings updated successfully",
+            data: settings,
         });
     } catch (error) {
-        console.error("Update Deduction Rules Error:", error);
+        console.error("❌ Update Deduction Rules Error:", error);
         return res.status(500).json({
             success: false,
             message: "Internal server error",
@@ -743,6 +908,8 @@ exports.updateDeductionRules = async (req, res) => {
     }
 };
 
+
+
 /**
  * =========================
  * 🆕 GET DEDUCTION RULES
@@ -750,10 +917,31 @@ exports.updateDeductionRules = async (req, res) => {
  */
 exports.getDeductionRules = async (req, res) => {
     try {
+        // Fetch active payroll setting from database
+        let settings = await PayrollSetting.findOne({ isActive: true });
+
+        // If no settings exist, create default
+        if (!settings) {
+            settings = await PayrollSetting.create({
+                latePenaltyPerMinute: 10,
+                earlyExitPenaltyPerMinute: 15,
+                absentFullDayPenalty: 1000,
+                halfDayPenalty: 500,
+                minimumOvertimeMinutes: 30,
+                overtimeRatePerMinute: 5,
+                graceLateMinutes: 15,
+                graceEarlyMinutes: 15,
+                standardShiftMinutes: 480,
+                halfDayThresholdMinutes: 240,
+                isActive: true,
+                createdBy: req.user?._id,
+            });
+        }
+
         return res.status(200).json({
             success: true,
-            message: "Deduction rules retrieved successfully",
-            data: DEDUCTION_RULES,
+            message: "Payroll settings retrieved successfully",
+            data: settings,
         });
     } catch (error) {
         console.error("Get Deduction Rules Error:", error);
@@ -764,6 +952,7 @@ exports.getDeductionRules = async (req, res) => {
         });
     }
 };
+
 
 /**
  * =========================

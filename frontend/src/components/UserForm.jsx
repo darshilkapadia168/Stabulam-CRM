@@ -64,7 +64,7 @@ export default function UserForm({ closeForm, refresh, editUser }) {
     try {
       if (editUser) {
         // UPDATE USER
-        const res = await fetch(`http://localhost:5000/api/users/${editUser._id}`, {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${editUser._id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -87,7 +87,7 @@ export default function UserForm({ closeForm, refresh, editUser }) {
           return;
         }
 
-        const res = await fetch("http://localhost:5000/api/users", {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

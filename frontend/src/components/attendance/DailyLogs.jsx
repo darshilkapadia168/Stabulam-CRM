@@ -26,7 +26,8 @@ import {
 import axios from "axios";
 import { io } from "socket.io-client";
 
-const API_BASE = "http://localhost:5000/api";
+const API_URL = import.meta.env.VITE_API_URL;
+const API_BASE = `${API_URL}/api`;
 
 const DailyLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -36,6 +37,7 @@ const DailyLogs = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(null);
+  const [payrollSettings, setPayrollSettings] = useState(null);
   
   // 🆕 Deduction Modal State
   const [showDeductionModal, setShowDeductionModal] = useState(false);
@@ -78,6 +80,15 @@ const DailyLogs = () => {
     }
   };
 
+  const fetchPayrollSettings = async () => {
+  try {
+    const res = await axios.get(`${API_BASE}/daily-logs/deduction-rules`, axiosConfig);
+    setPayrollSettings(res.data.data);
+  } catch (error) {
+    console.error("Error fetching payroll settings:", error);
+  }
+};
+
   // Fetch daily summary
   const fetchSummary = async () => {
     try {
@@ -104,11 +115,12 @@ const DailyLogs = () => {
     }
   };
 
-  useEffect(() => {
-    fetchDailyLogs();
-    fetchSummary();
-    fetchDeductionSummary();
-  }, [selectedDate, filterStatus, page]);
+ useEffect(() => {
+  fetchPayrollSettings();
+  fetchDailyLogs();
+  fetchSummary();
+  fetchDeductionSummary();
+}, [selectedDate, filterStatus, page]);
 
   // Socket.IO real-time updates
   useEffect(() => {
@@ -428,21 +440,58 @@ const DailyLogs = () => {
               )}
             </div>
 
-            {/* Deduction Rules Info */}
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Info size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-800">
-                  <p className="font-semibold mb-2">Deduction Policy:</p>
-                  <ul className="space-y-1 text-xs">
-                    <li>• Late arrival: ₹10/minute (after 15-min grace period)</li>
-                    <li>• Early exit: ₹15/minute (before shift end minus grace)</li>
-                    <li>• Half-day (&lt;4 hrs work): ₹500 deduction</li>
-                    <li>• Full-day absent: ₹1000 deduction</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+{/* Replace the existing Deduction Rules Info section with this */}
+{payrollSettings && (
+  <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <div className="flex items-start gap-2">
+      <Settings size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
+      <div className="text-sm text-blue-800">
+        <p className="font-semibold mb-2 flex items-center gap-2">
+          Current Deduction Policy
+          <span className="text-xs bg-blue-100 px-2 py-1 rounded">Active</span>
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+          <div className="bg-white/50 p-2 rounded">
+            <p className="font-semibold text-red-700">Late Arrival Penalty</p>
+            <p className="text-gray-700">
+              ₹{payrollSettings.latePenaltyPerMinute}/min (after {payrollSettings.graceLateMinutes}min grace)
+            </p>
+          </div>
+          <div className="bg-white/50 p-2 rounded">
+            <p className="font-semibold text-orange-700">Early Exit Penalty</p>
+            <p className="text-gray-700">
+              ₹{payrollSettings.earlyExitPenaltyPerMinute}/min (before shift end)
+            </p>
+          </div>
+          <div className="bg-white/50 p-2 rounded">
+            <p className="font-semibold text-yellow-700">Half Day Penalty</p>
+            <p className="text-gray-700">
+              ₹{payrollSettings.halfDayPenalty} (less than {payrollSettings.halfDayThresholdMinutes / 60}h)
+            </p>
+          </div>
+          <div className="bg-white/50 p-2 rounded">
+            <p className="font-semibold text-gray-700">Full Day Absent</p>
+            <p className="text-gray-700">
+              ₹{payrollSettings.absentFullDayPenalty} penalty
+            </p>
+          </div>
+          <div className="bg-white/50 p-2 rounded">
+            <p className="font-semibold text-green-700">Overtime Rate</p>
+            <p className="text-gray-700">
+              ₹{payrollSettings.overtimeRatePerMinute}/min (min {payrollSettings.minimumOvertimeMinutes}min)
+            </p>
+          </div>
+          <div className="bg-white/50 p-2 rounded">
+            <p className="font-semibold text-blue-700">Standard Shift</p>
+            <p className="text-gray-700">
+              {payrollSettings.standardShiftMinutes / 60} hours/day
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
           </div>
 
           {/* Footer */}

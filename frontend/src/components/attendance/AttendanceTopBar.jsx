@@ -9,11 +9,12 @@ const API_URL = import.meta.env.VITE_API_URL;
 const API_BASE = `${API_URL}/api`;
 
 const AttendanceTopBar = () => {
-  const [status, setStatus] = useState(null); // ✅ Changed default from "ABSENT" to null
+  const [status, setStatus] = useState(null);
   const [clockInTime, setClockInTime] = useState(null);
   const [clockOutTime, setClockOutTime] = useState(null);
   const [totalBreakDuration, setTotalBreakDuration] = useState(0);
   const [currentBreakDuration, setCurrentBreakDuration] = useState(0);
+  const [breakSummary, setBreakSummary] = useState({ totalBreaks: 0, totalBreakHours: 0 }); // ✅ NEW
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraAction, setCameraAction] = useState(null);
@@ -34,13 +35,17 @@ const AttendanceTopBar = () => {
         clockOutTime: backendClockOutTime,
         totalBreakDuration: backendTotalBreak,
         currentBreakDuration: backendCurrentBreak,
+        breakSummary: backendBreakSummary, // ✅ NEW
       } = res.data;
 
-      setStatus(backendStatus); // Will be null if not clocked in
+      console.log("✅ Fetched live status:", res.data);
+
+      setStatus(backendStatus);
       setClockInTime(backendClockInTime ? new Date(backendClockInTime) : null);
       setClockOutTime(backendClockOutTime ? new Date(backendClockOutTime) : null);
       setTotalBreakDuration(backendTotalBreak || 0);
       setCurrentBreakDuration(backendCurrentBreak || 0);
+      setBreakSummary(backendBreakSummary || { totalBreaks: 0, totalBreakHours: 0 }); // ✅ NEW
     } catch (err) {
       console.error("Failed to fetch live attendance:", err);
     } finally {
@@ -84,6 +89,7 @@ const AttendanceTopBar = () => {
       setClockOutTime(backendClockOutTime ? new Date(backendClockOutTime) : null);
       setTotalBreakDuration(backendTotalBreak || 0);
       setCurrentBreakDuration(0);
+      setBreakSummary({ totalBreaks: 0, totalBreakHours: 0 }); // ✅ Reset on clock-in
 
       alert("Clock-in successful!");
     } catch (err) {
@@ -109,11 +115,19 @@ const AttendanceTopBar = () => {
   const handleClockOutWithData = async (photoBlob, location) => {
     setLoading(true);
     try {
+      console.log("📍 Location data:", location);
+      console.log("📷 Photo blob:", photoBlob);
+      console.log("📊 Current status:", status);
+
       const formData = new FormData();
       formData.append("photo", photoBlob, "clock-out.jpg");
       formData.append("latitude", location.latitude);
       formData.append("longitude", location.longitude);
       formData.append("officeTag", location.officeTag || "Office");
+
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+      }
 
       const res = await axios.post(`${API_BASE}/attendance/clock-out`, formData, {
         headers: {
@@ -127,6 +141,7 @@ const AttendanceTopBar = () => {
         clockInTime: backendClockInTime,
         clockOutTime: backendClockOutTime,
         totalBreakDuration: backendTotalBreak,
+        breakSummary: backendBreakSummary, // ✅ NEW
       } = res.data.data;
 
       setStatus(backendStatus);
@@ -134,9 +149,14 @@ const AttendanceTopBar = () => {
       setClockOutTime(backendClockOutTime ? new Date(backendClockOutTime) : new Date());
       setTotalBreakDuration(backendTotalBreak || 0);
       setCurrentBreakDuration(0);
+      setBreakSummary(backendBreakSummary || { totalBreaks: 0, totalBreakHours: 0 }); // ✅ NEW
 
       alert("Clock-out successful!");
     } catch (err) {
+      console.error("❌ Clock-out error:", err);
+      console.error("❌ Response data:", err.response?.data);
+      console.error("❌ Status code:", err.response?.status);
+      
       alert(err.response?.data?.message || "Clock Out failed");
       fetchLiveStatus();
     } finally {
@@ -168,6 +188,7 @@ const AttendanceTopBar = () => {
           clockInTime: backendClockInTime,
           clockOutTime: backendClockOutTime,
           totalBreakDuration: backendTotalBreak,
+          breakSummary: backendBreakSummary, // ✅ NEW
         } = res.data.data;
 
         setStatus(backendStatus);
@@ -175,6 +196,7 @@ const AttendanceTopBar = () => {
         setClockOutTime(backendClockOutTime ? new Date(backendClockOutTime) : null);
         setTotalBreakDuration(backendTotalBreak || 0);
         setCurrentBreakDuration(0);
+        setBreakSummary(backendBreakSummary || { totalBreaks: 0, totalBreakHours: 0 }); // ✅ NEW
       } else {
         const res = await axios.post(`${API_BASE}/attendance/break/start`, {}, axiosConfig);
         const {
@@ -272,13 +294,22 @@ const AttendanceTopBar = () => {
               </button>
             </div>
 
-            {/* Break Button */}
+            {/* Break Button with Summary - ✅ ENHANCED */}
             {status && status !== "CHECKED_OUT" && status !== "ON_LEAVE" && (
-              <div className="mt-3 pt-3 border-t border-blue-100/50 flex justify-end">
+              <div className="mt-3 pt-3 border-t border-blue-100/50 flex justify-between items-center">
+                {/* ✅ Break Summary Display */}
+                {breakSummary.totalBreaks > 0 && (
+                  <div className="text-[11px] text-gray-500">
+                    <span className="font-medium">{breakSummary.totalBreaks}</span> break{breakSummary.totalBreaks > 1 ? 's' : ''} 
+                    <span className="mx-1">•</span>
+                    <span className="font-medium">{breakSummary.totalBreakHours}h</span>
+                  </div>
+                )}
+                
                 <button
                   onClick={handleBreakToggle}
                   disabled={isButtonDisabled}
-                  className={`flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  className={`flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg transition-all ml-auto ${
                     status === "ON_BREAK"
                       ? "bg-orange-100 text-orange-700 border border-orange-200"
                       : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"

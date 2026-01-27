@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { User, Mail, Lock, Shield, UserPlus } from "lucide-react";
+import { User, Mail, Lock, Shield, UserPlus, Eye, EyeOff } from "lucide-react";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -13,6 +13,10 @@ export default function Register() {
     confirmPassword: "",
     role: "intern",
   });
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -134,20 +138,30 @@ export default function Register() {
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                type="password"
-                name="password"
-                placeholder="Min 6 characters"
-                value={formData.password}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-                           transition-all text-slate-900 placeholder:text-slate-400"
-                required
-                minLength={6}
-              />
-            </div>
+  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+
+  <input
+    type={showPassword ? "text" : "password"}
+    name="password"
+    placeholder="Min 6 characters"
+    value={formData.password}
+    onChange={handleChange}
+    className="w-full pl-10 pr-10 py-3 border border-slate-300 rounded-lg
+               focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+               transition-all text-slate-900 placeholder:text-slate-400"
+    required
+    minLength={6}
+  />
+
+  <button
+    type="button"
+    onClick={() => setShowPassword(!showPassword)}
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+  >
+    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+  </button>
+</div>
+
           </div>
 
           {/* Confirm Password Input */}
@@ -156,19 +170,29 @@ export default function Register() {
               Confirm Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                type="password"
-                name="confirmPassword"
-                placeholder="Re-enter password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-                           transition-all text-slate-900 placeholder:text-slate-400"
-                required
-              />
+  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+
+  <input
+    type={showConfirmPassword ? "text" : "password"}
+    name="confirmPassword"
+    placeholder="Re-enter password"
+    value={formData.confirmPassword}
+    onChange={handleChange}
+    className="w-full pl-10 pr-10 py-3 border border-slate-300 rounded-lg
+               focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+               transition-all text-slate-900 placeholder:text-slate-400"
+    required
+  />
+
+  <button
+    type="button"
+    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+  >
+    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+  </button>
             </div>
+
           </div>
 
           {/* Role Select */}

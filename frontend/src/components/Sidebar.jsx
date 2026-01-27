@@ -13,13 +13,18 @@ import {
   Clock,
   Settings,
   FileText,
-  ClipboardList
+  ClipboardList,
+  Calendar
 } from "lucide-react";
 
 export default function Sidebar() {
   const { user } = useAuth();
   const location = useLocation();
   const [attendanceOpen, setAttendanceOpen] = useState(false);
+
+  // ✅ Role-based access control
+  const isAdmin = ['admin', 'super_admin'].includes(user?.role);
+  const isEmployee = ['employee', 'sr_employee', 'jr_employee', 'intern', 'management'].includes(user?.role);
 
   // Auto-expand attendance dropdown if on attendance route
   useEffect(() => {
@@ -73,7 +78,7 @@ export default function Sidebar() {
           )}
         </NavLink>
 
-        {/* User Management */}
+        {/* User Management - VISIBLE TO ALL USERS */}
         <NavLink to="/dashboard/users" className={navLinkClass}>
           {({ isActive }) => (
             <>
@@ -84,7 +89,7 @@ export default function Sidebar() {
           )}
         </NavLink>
 
-        {/* Employee Management */}
+        {/* Employee Management - VISIBLE TO ALL USERS */}
         <NavLink to="/dashboard/employees/profiles" className={navLinkClass}>
           {({ isActive }) => (
             <>
@@ -95,7 +100,7 @@ export default function Sidebar() {
           )}
         </NavLink>
 
-        {/* Attendance Management - WITH CLICKABLE DROPDOWN */}
+        {/* Attendance Management - ROLE-BASED DROPDOWN */}
         <div>
           {/* Dropdown Toggle Button */}
           <button
@@ -118,7 +123,7 @@ export default function Sidebar() {
             )}
           </button>
 
-          {/* Dropdown Menu */}
+          {/* Dropdown Menu - ROLE-BASED ITEMS */}
           <div 
             className={`overflow-hidden transition-all duration-300 ${
               attendanceOpen ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0"
@@ -126,7 +131,19 @@ export default function Sidebar() {
           >
             <div className="space-y-1">
 
-              {/* 1. Attendance (Main Attendance Page) */}
+              {/* ADMIN ONLY - All Daily Logs */}
+              {isAdmin && (
+                <NavLink to="/dashboard/attendance/all-daily-logs" className={subNavLinkClass}>
+                  {({ isActive }) => (
+                    <>
+                      <ClipboardList className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                      <span className="text-sm font-medium">All Daily Logs</span>
+                    </>
+                  )}
+                </NavLink>
+              )}
+
+              {/* SHARED - Main Attendance Page */}
               <NavLink to="/dashboard/attendance" end className={subNavLinkClass}>
                 {({ isActive }) => (
                   <>
@@ -136,17 +153,19 @@ export default function Sidebar() {
                 )}
               </NavLink>
 
-              {/* 2. Payroll Settings (No Role Restriction) */}
-              <NavLink to="/dashboard/attendance/payroll-settings" className={subNavLinkClass}>
-                {({ isActive }) => (
-                  <>
-                    <Settings className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                    <span className="text-sm font-medium">Payroll Settings</span>
-                  </>
-                )}
-              </NavLink>
+              {/* ADMIN ONLY - Payroll Settings */}
+              {isAdmin && (
+                <NavLink to="/dashboard/attendance/payroll-settings" className={subNavLinkClass}>
+                  {({ isActive }) => (
+                    <>
+                      <Settings className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                      <span className="text-sm font-medium">Payroll Settings</span>
+                    </>
+                  )}
+                </NavLink>
+              )}
 
-              {/* 3. Workplace Locations */}
+              {/* SHARED - Workplace Locations (All users can access) */}
               <NavLink to="/dashboard/attendance/workplace-locations" className={subNavLinkClass}>
                 {({ isActive }) => (
                   <>
@@ -169,7 +188,7 @@ export default function Sidebar() {
           <div>
             <p className="text-xs text-slate-400 uppercase tracking-wide">Role</p>
             <p className="text-sm font-semibold text-white capitalize">
-              {user?.role || "Admin"}
+              {user?.role?.replace('_', ' ') || "Admin"}
             </p>
           </div>
         </div>

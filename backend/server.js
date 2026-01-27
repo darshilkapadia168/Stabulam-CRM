@@ -4,7 +4,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const http = require("http");
 const { Server } = require("socket.io");
-const connectDB = require("./src/config/db");
+const connectDB = require("./src/config/db.config");
 
 dotenv.config();
 connectDB();
@@ -14,48 +14,38 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ============================================
 // ROUTES REGISTRATION
 // ============================================
 
 // Auth Routes
-const authRoutes = require("./src/routes/authRoutes");
+const authRoutes = require("./src/routes/auth.routes");
 app.use("/api/auth", authRoutes);
 
 // User Routes
-const userRoutes = require("./src/routes/userRoutes");
+const userRoutes = require("./src/routes/user.routes");
 app.use("/api/users", userRoutes);
 
 // Employee Routes
-const employeeRoutes = require("./src/routes/employeeRoutes");
+const employeeRoutes = require("./src/routes/employee.routes");
 app.use("/api/employees", employeeRoutes);
 
 // Attendance Routes
-const attendanceRoutes = require('./src/routes/attendanceRoutes');
+const attendanceRoutes = require('./src/routes/attendance.routes');
 app.use("/api/attendance", attendanceRoutes);
 
-// Break Routes
-const breakRoutes = require('./src/routes/breakRoutes');
-app.use("/api/break", breakRoutes);
-
 // Workplace Location Routes
-const workplaceLocationRoutes = require('./src/routes/workplaceLocationRoutes');
+const workplaceLocationRoutes = require('./src/routes/workplaceLocation.routes');
 app.use("/api/workplace-locations", workplaceLocationRoutes);
 
 // Daily Logs Routes
-const dailyLogsRoutes = require('./src/routes/dailylogsRoutes');
+const dailyLogsRoutes = require('./src/routes/dailylogs.routes');
 app.use("/api/daily-logs", dailyLogsRoutes);
 
 
 console.log("✅ All routes registered successfully");
-
-// ============================================
-// SERVE FRONTEND (Production)
-// ============================================
-const frontendPath = path.join(__dirname, "../frontend/dist");
-app.use(express.static(frontendPath));
 
 // ============================================
 // SOCKET.IO SETUP

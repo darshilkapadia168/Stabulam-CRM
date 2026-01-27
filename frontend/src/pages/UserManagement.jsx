@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import UserForm from "../components/UserForm";
+import UserForm from "../components/usermanagement/UserForm";
 
 import {
   CheckCircle,
